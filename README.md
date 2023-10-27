@@ -1,2 +1,1 @@
-# RelationExtraction
-A  implementation of Language-independent Relation Extraction
+A implementation of languague-independent Entity Linking using XGboost Classifier
