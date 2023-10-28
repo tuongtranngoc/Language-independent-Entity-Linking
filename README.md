@@ -22,14 +22,14 @@ Before training, please modify configuration in `src/config/cfg.py` file and get
 
 ```bash
 cd src/
-python train --lang <language specific>
+python train --lang <language-specific>
 ```
 
 ## Evaluation
 To evaluate for languague specific and one-shot task (training and evaluate on language X).
 ```bash
 cd src
-python evaluate.py --lang <languague specific>
+python evaluate.py --lang <languague-specific>
 ```
 
 To evaluate for zero-shot task (training on English language and evaluate on language X).
