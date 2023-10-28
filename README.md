@@ -39,7 +39,7 @@ python evaluate.py --task zero-shot
 ```
 
 ## Experiments
-F1-score relation extraction 
+F1-score relation extraction on tasks
 
 ### Languague-specific task
 
