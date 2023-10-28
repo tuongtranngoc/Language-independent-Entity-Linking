@@ -5,8 +5,8 @@ from __future__ import absolute_import
 import os
 import cv2
 import json
-import glob
 import pickle
+import argparse
 import itertools
 import pandas as pd
 from tqdm import tqdm
@@ -21,11 +21,11 @@ from sklearn.metrics import recall_score, precision_score, f1_score
 
 
 class Trainer(object):
-    def __init__(self) -> None:
+    def __init__(self, args) -> None:
         self.kv_embed = KVEmbedding()
         self.dirname = cfg.dataset.image_path
         self.cols = ['k_id', 'k_text', 'k_box', 'v_id', 'v_text', 'v_box', 'k_embed', 'v_embed', 'width', 'height', 'fname']
-        self.lang = cfg.dataset.lang
+        self.lang = args.lang
         
     def load_data(self, type_data='train'):
         df = []
@@ -235,6 +235,14 @@ class Trainer(object):
         print(f"F1-score: {f1_score(y_val, y_preds)}")
 
 
+def cli():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lang', default=cfg.dataset.lang, type=str, help='Language specific for training')
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == "__main__":
-    trainer = Trainer()
-    data = trainer.train()
+    args = cli()
+    trainer = Trainer(args)
+    trainer.train()
