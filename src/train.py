@@ -11,6 +11,7 @@ import itertools
 import pandas as pd
 from tqdm import tqdm
 import xgboost as xgb
+import lightgbm as lgbm
 from sklearn.preprocessing import StandardScaler
 
 from utils.boxes import *
@@ -179,7 +180,7 @@ class Trainer(object):
             pickle.dump(df_val, open(val_org_pth, 'wb'))
             pickle.dump(features_val, open(val_feat_pth, 'wb'))
             
-        X_train, y_train = features_train.values[:, :-1], features_train.values[:, -1]
+        X_train, y_train = features_train.values[:, :-1], features_train.values[:, -1].astype(int)
         if os.path.exists(scaler_pth):
             scaler = pickle.load(open(scaler_pth, 'rb'))
             X_train = scaler.transform(X_train)
@@ -187,7 +188,7 @@ class Trainer(object):
             X_train = scaler.fit_transform(X_train)
             pickle.dump(scaler, open(scaler_pth, 'wb'))
         
-        X_val, y_val = features_val.values[:, :-1], features_val.values[:, -1]
+        X_val, y_val = features_val.values[:, :-1], features_val.values[:, -1].astype(int)
         X_val = scaler.transform(X_val)
         
         return (X_train, y_train), (X_val, y_val), (df_train.reset_index(drop=True), df_val.reset_index(drop=True))
@@ -214,11 +215,12 @@ class Trainer(object):
                 print("Loading default params ...")
                 params = {
                     'random_state': 1997,
-                    'n_estimators': 300,
+                    'n_estimators': 200,
                     'n_jobs': 15,
-                    'max_depth': 20,
+                    'max_depth': 10,
                 }
-            clf = xgb.XGBClassifier(objective="binary:logistic", **params)
+            # clf = xgb.XGBClassifier(objective="binary:logistic", **params)
+            clf = lgbm.LGBMClassifier(objective='binary', **params)
             clf.fit(X_train, y_train)
 
             print('Saving model ...')
