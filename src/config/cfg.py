@@ -13,6 +13,6 @@ class Configuration:
         'scaler_path': 'weights',
         'model_path': 'weights',
         'debug_dir': 'debugs',
-        'lang': 'pt'
+        'lang': 'es'
         
     })

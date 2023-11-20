@@ -1,5 +1,5 @@
 # Language-independent-Entity-Linking
-A implementation of languague-independent Entity Linking using XGboost Classifier
+A implementation of languague-independent Entity Linking using ML Classifier
 
 ## Introduction
 The state-of-the-art VIE, KIE models as examples LayoutXLM, LayoutLMv3, VI-LayoutXLM, ... that they would make misstakes in certain relatively simple scenarios, where the geometric relations between entities are not complicated. They seems to link two entities dependending more in the semantics than geometric layout. To futher verify my conjecture, I conduct an experiment by creating the linkings between entities using features: distance, direction, angle, coordinates based on bounding boxes of text.
