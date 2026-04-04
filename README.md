@@ -77,11 +77,11 @@ F1-score on RFUND multilingual subsets (language-specific task). `-` means the m
 
 | Method | ZH | JA | ES | FR | IT | DE | PT |
 |---|---|---|---|---|---|---|---|
-| Donut$_\text{BASE}$ | 28.21 | 13.82 | - | - | - | - | - |
-| LayoutLMv3$_\text{Chinese BASE}$ | 72.14 | - | - | - | - | - | - |
-| PEneo-LayoutLMv3$_\text{Chinese BASE}$ | 85.05 | - | - | - | - | - | - |
-| LiLT[InfoXLM]$_\text{BASE}$ | 66.50 | 43.98 | 63.85 | 62.60 | 60.57 | 55.13 | 52.96 |
-| PEneo-LiLT[InfoXLM]$_\text{BASE}$ | 80.51 | 54.59 | 71.43 | 77.49 | 73.62 | 70.11 | 71.43 |
-| LayoutXLM$_\text{BASE}$ | 64.11 | 40.21 | 66.75 | 67.98 | 63.04 | 58.77 | 59.79 |
-| PEneo-LayoutXLM$_\text{BASE}$ | 80.41 | 52.81 | 74.56 | 78.11 | 75.17 | 74.06 | 70.81 |
+| Donut (BASE) | 28.21 | 13.82 | - | - | - | - | - |
+| LayoutLMv3 (Chinese BASE) | 72.14 | - | - | - | - | - | - |
+| PEneo-LayoutLMv3 (Chinese BASE) | 85.05 | - | - | - | - | - | - |
+| LiLT[InfoXLM] (BASE) | 66.50 | 43.98 | 63.85 | 62.60 | 60.57 | 55.13 | 52.96 |
+| PEneo-LiLT[InfoXLM] (BASE) | 80.51 | 54.59 | 71.43 | 77.49 | 73.62 | 70.11 | 71.43 |
+| LayoutXLM (BASE) | 64.11 | 40.21 | 66.75 | 67.98 | 63.04 | 58.77 | 59.79 |
+| PEneo-LayoutXLM (BASE) | 80.41 | 52.81 | 74.56 | 78.11 | 75.17 | 74.06 | 70.81 |
 | **Our approach** | **97.06** | **92.32** | **91.91** | **94.94** | **89.48** | **92.21** | **90.30** |
