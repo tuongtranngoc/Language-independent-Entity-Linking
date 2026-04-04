@@ -6,10 +6,10 @@ from easydict import EasyDict
 
 class Configuration:
     dataset = EasyDict({
-        'data_path': '../dataset/xfund_funsd',
+        'data_path': '../datasets/rfund',
         'params': 'params_best/params.json',
         'features_path': 'features',
-        'image_path': '../dataset/xfund_funsd',
+        'image_path': '../datasets/rfund',
         'scaler_path': 'weights',
         'model_path': 'weights',
         'debug_dir': 'debugs',

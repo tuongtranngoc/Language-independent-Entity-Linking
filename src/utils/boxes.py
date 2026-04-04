@@ -2,6 +2,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import absolute_import
 
+import math
 import numpy as np
 
 def points2xyxy(points):
@@ -24,7 +25,7 @@ def xyxy2points(xyxy):
 def cal_degrees(a, b):
     v1 = [1, 0]
     v0 = [b[0] - a[0], b[1] - a[1]]
-    deg = np.degrees(np.math.atan2(np.linalg.det([v0,v1]),np.dot(v0,v1)))
+    deg = np.degrees(math.atan2(np.linalg.det([v0,v1]),np.dot(v0,v1)))
     return deg
 
 

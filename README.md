@@ -1,56 +1,87 @@
-# Language-independent-Entity-Linking
-A implementation of languague-independent Entity Linking using ML Classifier
+# Language-independent Entity Linking
+
+Language-independent Entity Linking for Key-Value (KV) relation extraction in document understanding. Instead of relying on semantics-heavy transformer models (LayoutXLM, LayoutLMv3), this approach uses geometric features (distance, direction, angle, bounding box coordinates) combined with a LightGBM classifier to link question/key entities to answer/value entities.
 
 ## Introduction
-The state-of-the-art VIE, KIE models as examples LayoutXLM, LayoutLMv3, VI-LayoutXLM, ... that they would make misstakes in certain relatively simple scenarios, where the geometric relations between entities are not complicated. They seems to link two entities dependending more in the semantics than geometric layout. To futher verify my conjecture, I conduct an experiment by creating the linkings between entities using features: distance, direction, angle, coordinates based on bounding boxes of text.
+
+State-of-the-art VIE/KIE models such as LayoutXLM and LayoutLMv3 tend to link entities based more on semantics than geometric layout, leading to mistakes in scenarios where geometric relations are straightforward. This project verifies that geometric features alone — distance, direction, angle, and bounding box coordinates — are sufficient for accurate KV entity linking, and that such a model generalises across languages without retraining.
 
 ## Environment
-
-The dependencies are listed in `requirements.txt`. Please install follow the command as below:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Dataset and model checkpoints
-You can download raw dataset from [here](), and put the file xfund&funsd under the root folder.
+Key dependencies: `lightgbm`, `sentence-transformers`, `pandas`, `rich`, `opencv-python`.
 
-You can download pre-processed dataset and model checkpoints from [here]() include `features`, `weights` and put the folders under src/ directory.
+## Dataset
+
+Place the RFUND dataset under the repo root:
+
+```
+datasets/rfund/
+    en.train.json  en.val.json
+    zh.train.json  zh.val.json
+    ...            (ja, es, fr, it, de, pt)
+```
+
+Pre-processed feature pickles and model weights are cached automatically on first run under `src/features/<lang>/` and `src/weights/<lang>/`.
 
 ## Training
-Before training, please modify configuration in `src/config/cfg.py` file and getting started training
 
 ```bash
 cd src/
-python train --lang <language-specific>
+
+# Train all languages (default)
+python train.py
+
+# Train a single language
+python train.py --lang en
 ```
+
+Supported languages: `en`, `zh`, `ja`, `es`, `fr`, `it`, `de`, `pt`.
+
+Logs are saved to `src/logs/train_<timestamp>.log`.
 
 ## Evaluation
-To evaluate for languague specific and one-shot task (training and evaluate on language X).
+
 ```bash
-cd src
-python evaluate.py --lang <languague-specific>
+cd src/
+
+# Evaluate all languages (default)
+python evaluate.py
+
+# Evaluate a single language
+python evaluate.py --lang en
 ```
 
-To evaluate for zero-shot task (training on English language and evaluate on language X).
-```bash
-cd src
-python evaluate.py --task zero-shot
-```
+Logs are saved to `src/logs/evaluate_<timestamp>.log`.
+
+## Architecture
+
+1. **Feature engineering** — 21 geometric + embedding features per KV candidate pair:
+   - `fe1`–`fe8`: absolute coordinate differences between box corners
+   - `fe9`–`fe12`: box width/height
+   - `fe13`–`fe17`: angles between corner pairs and centres (`cal_degrees`)
+   - `fe18`: gap distance between boxes (`boxes_distance`)
+   - `fe19`: Euclidean distance between centres
+   - `fe20`/`fe21`: scalar text embedding from `all-MiniLM-L6-v2` (abs mean)
+
+2. **Classifier** — `LGBMClassifier` (binary), one model per language, saved to `weights/<lang>/clf.pkl`.
+
+3. **Post-processing** — each value entity is assigned to the key with the highest predicted probability (one-to-one constraint per document).
 
 ## Experiments
-F1-score relation extraction on tasks
 
-### Languague-specific task
+F1-score on RFUND multilingual subsets (language-specific task). `-` means the model does not provide pre-trained weights for that language.
 
-||EN(FUNSD)|ZH|JA|ES|FR|IT|DE|PT|Avg|
-|--|--|--|--|--|--|--|--|--|--|
-|$LayoutXLM_{Large}$|64.1|78.9|72.5|76.7|71.1|76.9|68.4|67.9|72.1|
-|Our approach|**92.5**|72.5|**78.6**|75.8|**82.2**|**84.5**|**76.1**|**71.6**|**79.2**|
-
-### Zero-shot task
-
-||EN(FUNSD)|ZH|JA|ES|FR|IT|DE|PT|Avg|
-|--|--|--|--|--|--|--|--|--|--|
-|$LayoutXLM_{Large}$|64.1|55.3|56.9|57.8|56.1|51.8|48.9|47.9|54.8|
-|Our approach|**92.5**|**68.1**|**72.5**|**72.8**|**83.5**|**84.4**|**73.3**|**68.1**|**74.6**|
+| Method | ZH | JA | ES | FR | IT | DE | PT |
+|---|---|---|---|---|---|---|---|
+| Donut$_\text{BASE}$ | 28.21 | 13.82 | - | - | - | - | - |
+| LayoutLMv3$_\text{Chinese BASE}$ | 72.14 | - | - | - | - | - | - |
+| PEneo-LayoutLMv3$_\text{Chinese BASE}$ | 85.05 | - | - | - | - | - | - |
+| LiLT[InfoXLM]$_\text{BASE}$ | 66.50 | 43.98 | 63.85 | 62.60 | 60.57 | 55.13 | 52.96 |
+| PEneo-LiLT[InfoXLM]$_\text{BASE}$ | 80.51 | 54.59 | 71.43 | 77.49 | 73.62 | 70.11 | 71.43 |
+| LayoutXLM$_\text{BASE}$ | 64.11 | 40.21 | 66.75 | 67.98 | 63.04 | 58.77 | 59.79 |
+| PEneo-LayoutXLM$_\text{BASE}$ | 80.41 | 52.81 | 74.56 | 78.11 | 75.17 | 74.06 | 70.81 |
+| **Our approach** | **97.06** | **92.32** | **91.91** | **94.94** | **89.48** | **92.21** | **90.30** |
