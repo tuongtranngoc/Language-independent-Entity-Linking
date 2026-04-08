@@ -8,21 +8,40 @@ import json
 import pickle
 import argparse
 import itertools
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from datetime import datetime
 import lightgbm as lgbm
+import matplotlib.pyplot as plt
+from datetime import datetime
 from sklearn.preprocessing import StandardScaler
 
 from utils.boxes import *
 from utils.console import get_printer
 from config.cfg import Configuration as cfg
 from modules.kv_embedding import KVEmbedding
-
-from sklearn.metrics import recall_score, precision_score, f1_score
+from evaluate import calculate_kv_metric
 
 LANGS = ['en', 'zh', 'ja', 'es', 'fr', 'it', 'de', 'pt']
+FEATURE_NAMES = [f'fe{i}' for i in range(1, 22)]
+IMAGES_DIR = 'images'
 console = None  # initialised in __main__ with a log file
+
+
+def plot_feature_importance(importances: np.ndarray, title: str, filename: str):
+    """Save a horizontal bar chart of feature importances (gain) sorted descending."""
+    os.makedirs(IMAGES_DIR, exist_ok=True)
+    order = np.argsort(importances)
+    fig, ax = plt.subplots(figsize=(8, 7))
+    ax.barh([FEATURE_NAMES[i] for i in order], importances[order], color='steelblue')
+    ax.set_xlabel('Importance (gain)')
+    ax.set_title(title)
+    ax.tick_params(axis='y', labelsize=9)
+    plt.tight_layout()
+    path = os.path.join(IMAGES_DIR, filename)
+    plt.savefig(path, dpi=150)
+    plt.close(fig)
+    console.print_info(f"Feature importance chart → {path}")
 
 
 class Trainer(object):
@@ -31,7 +50,7 @@ class Trainer(object):
         self.dirname = cfg.dataset.image_path
         self.cols = ['k_id', 'k_text', 'k_box', 'v_id', 'v_text', 'v_box', 'k_embed', 'v_embed', 'width', 'height', 'fname']
         self.lang = args.lang
-        
+
     def load_data(self, type_data='train'):
         df = []
         label_path = os.path.join(cfg.dataset.data_path, f"{self.lang}.{type_data}.json")
@@ -110,22 +129,22 @@ class Trainer(object):
             re_total = pd.concat([re, non_re])
             df.append(re_total)
         return pd.concat(df)
-    
-    def make_features(self, df:pd.DataFrame):
+
+    def make_features(self, df: pd.DataFrame):
         console.print_info("Making features ...")
         df.k_box = df.apply(lambda x: normalize_scale_bbox(x.k_box, x.width, x.height), axis=1)
-        df.v_box = df.apply(lambda x:normalize_scale_bbox(x.v_box, x.width, x.height), axis=1)
+        df.v_box = df.apply(lambda x: normalize_scale_bbox(x.v_box, x.width, x.height), axis=1)
         k_features = pd.DataFrame(df.k_box.tolist(), index=df.index, columns=['k_' + s for s in ['x1', 'y1', 'x2', 'y2']])
         v_features = pd.DataFrame(df.v_box.tolist(), index=df.index, columns=['v_' + s for s in ['x1', 'y1', 'x2', 'y2']])
-        
+
         df = pd.concat([k_features, v_features, df[self.cols], df['label']], axis=1)
-        
+
         df['k_cx'] = df.k_x1.add(df.k_x2).div(2)
         df['k_cy'] = df.k_y1.add(df.k_y2).div(2)
-        
+
         df['v_cx'] = df.v_x1.add(df.v_x2).div(2)
         df['v_cy'] = df.v_y1.add(df.v_y2).div(2)
-        
+
         df['fe1'] = abs(df.v_x1 - df.k_x1)
         df['fe2'] = abs(df.v_y1 - df.k_y1)
         df['fe3'] = abs(df.v_x1 - df.k_x2)
@@ -138,36 +157,36 @@ class Trainer(object):
         df['fe10'] = abs(df.v_y2 - df.v_y1)
         df['fe11'] = abs(df.k_x2 - df.k_x1)
         df['fe12'] = abs(df.k_y2 - df.k_y1)
-        
+
         df['fe13'] = df.apply(lambda x: cal_degrees([x.k_x1, x.k_y1], [x.v_x1, x.v_y1]), axis=1)
         df['fe14'] = df.apply(lambda x: cal_degrees([x.k_x2, x.k_y1], [x.v_x2, x.v_y1]), axis=1)
         df['fe15'] = df.apply(lambda x: cal_degrees([x.k_x2, x.k_y2], [x.v_x2, x.v_y2]), axis=1)
         df['fe16'] = df.apply(lambda x: cal_degrees([x.k_x1, x.k_y2], [x.v_x1, x.v_y2]), axis=1)
         df['fe17'] = df.apply(lambda x: cal_degrees([x['k_cx'], x['k_cy']], [x['v_cx'], x['v_cy']]), axis=1)
 
-        df['fe18'] = df.apply(lambda x: boxes_distance([x.k_x1-x.v_x2, x.k_y2-x.v_y1],[x.v_x1-x.k_x2, x.v_y2-x.k_y1]), axis=1)
+        df['fe18'] = df.apply(lambda x: boxes_distance([x.k_x1-x.v_x2, x.k_y2-x.v_y1], [x.v_x1-x.k_x2, x.v_y2-x.k_y1]), axis=1)
         df['fe19'] = df.apply(lambda x: dist_points([x.k_cx, x.k_cy], [x.v_cx, x.v_cy]), axis=1)
 
         df['fe20'] = df['k_embed']
         df['fe21'] = df['v_embed']
-        
+
         cols = [c for c in df.columns if c.startswith('fe')] + ['label']
 
         return df[cols], df[self.cols]
-    
+
     def post_process(self, df: pd.DataFrame, pred_prob):
         # one value only links to one key but one key can link to many value
         df['pred_prob'] = pred_prob
         df['is_linking'] = 0.0
-        
+
         fnames = df.fname.unique().tolist()
         for fname in fnames:
-            df_fname = df[df.fname==fname]
+            df_fname = df[df.fname == fname]
             v_ids = df_fname.v_id.unique().tolist()
             for v_id in v_ids:
-                df_vid = df_fname[df_fname.v_id==v_id]
+                df_vid = df_fname[df_fname.v_id == v_id]
                 idx_max = df_vid.pred_prob.idxmax()
-                df.loc[(df.fname==fname)&(df.v_id==v_id)&(df.index==idx_max), 'is_linking'] = 1.0
+                df.loc[(df.fname == fname) & (df.v_id == v_id) & (df.index == idx_max), 'is_linking'] = 1.0
         return df
 
     def preprocess_data(self):
@@ -179,7 +198,7 @@ class Trainer(object):
         val_org_pth = os.path.join(cfg.dataset.features_path, self.lang, 'val_df.pkl')
         scaler_pth = os.path.join(cfg.dataset.scaler_path, self.lang, 'scaler.pkl')
         scaler = StandardScaler()
-        
+
         if os.path.exists(train_feat_pth):
             console.print_info("Loading features training data ...")
             features_train = pickle.load(open(train_feat_pth, 'rb'))
@@ -201,7 +220,7 @@ class Trainer(object):
             features_val, __ = self.make_features(df_val)
             pickle.dump(df_val, open(val_org_pth, 'wb'))
             pickle.dump(features_val, open(val_feat_pth, 'wb'))
-            
+
         X_train, y_train = features_train.values[:, :-1], features_train.values[:, -1].astype(int)
         if os.path.exists(scaler_pth):
             scaler = pickle.load(open(scaler_pth, 'rb'))
@@ -209,20 +228,19 @@ class Trainer(object):
         else:
             X_train = scaler.fit_transform(X_train)
             pickle.dump(scaler, open(scaler_pth, 'wb'))
-        
+
         X_val, y_val = features_val.values[:, :-1], features_val.values[:, -1].astype(int)
         X_val = scaler.transform(X_val)
-        
+
         return (X_train, y_train), (X_val, y_val), (df_train.reset_index(drop=True), df_val.reset_index(drop=True))
 
-        
     def train(self):
         os.makedirs(os.path.join(cfg.dataset.model_path, self.lang), exist_ok=True)
         train_data, val_data, data_df = self.preprocess_data()
         X_train, y_train = train_data
         X_val, y_val = val_data
         train_df, val_df = data_df
-        
+
         console.print_info(f"X_train: {X_train.shape}  |  X_val: {X_val.shape}")
 
         if not os.path.exists(os.path.join(cfg.dataset.model_path, self.lang, 'clf.pkl')):
@@ -248,12 +266,16 @@ class Trainer(object):
             clf = pickle.load(open(os.path.join(cfg.dataset.model_path, self.lang, 'clf.pkl'), 'rb'))
 
         pred_prob = clf.predict_proba(X_val)[:, 1]
-        y_preds = self.post_process(val_df, pred_prob).is_linking.values.astype(int)
-        y_val = y_val.astype(int)
+        df_pred = self.post_process(val_df, pred_prob)
+        metrics = calculate_kv_metric(pred_df=df_pred, gt_df=val_df)
         console.print_info(f"Evaluation — language: {self.lang}")
-        console.print_score_result("Recall",    f"{recall_score(y_val, y_preds):.4f}")
-        console.print_score_result("Precision", f"{precision_score(y_val, y_preds):.4f}")
-        console.print_score_result("F1-score",  f"{f1_score(y_val, y_preds):.4f}")
+        console.print_score_result("Precision", f"{metrics['precision']:.4f}")
+        console.print_score_result("Recall",    f"{metrics['recall']:.4f}")
+        console.print_score_result("F1-score",  f"{metrics['f1']:.4f}")
+
+        importances = clf.booster_.feature_importance(importance_type='gain')
+        plot_feature_importance(importances, f'Feature Importance [{self.lang}]', f'feature_importance_{self.lang}.png')
+        return importances
 
 
 def cli():
@@ -273,7 +295,11 @@ if __name__ == "__main__":
 
     trainer = Trainer(args)
     langs = LANGS if args.lang == 'all' else [args.lang]
+    all_importances = []
     for lang in langs:
         console.print_info(f"Training [{lang}]")
         trainer.lang = lang
-        trainer.train()
+        all_importances.append(trainer.train())
+    if args.lang == 'all':
+        avg_importances = np.mean(all_importances, axis=0)
+        plot_feature_importance(avg_importances, 'Feature Importance [average across all languages]', 'feature_importance_avg.png')

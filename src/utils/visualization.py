@@ -73,6 +73,4 @@ class Visualization:
         return image
 
 
-if __name__ == "__main__":
-    vis = Visualization.debug_ser()
 

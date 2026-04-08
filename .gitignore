@@ -3,4 +3,6 @@ dataset/*
 src/weights/*
 src/features/*
 src/logs/*
+src/images/*
+src/outputs/*
 datasets
